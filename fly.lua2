@@ -1,0 +1,127 @@
+--[[
+    Podstawowy skrypt do latania
+    Działa na większości executorów poziomu Medium
+    Sterowanie: Spacja - w górę, Shift - w dół, WASD - kierunek
+]]
+
+-- Sprawdzamy, czy skrypt już działa, żeby nie duplikować
+if not game:GetService("RunService"):IsClient() then
+    return
+end
+
+-- Zmienne do sterowania
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Parametry lotu
+local flySpeed = 50
+local flyHeight = 20
+
+-- Stan lotu
+local flying = false
+local flyConnection = nil
+
+-- Funkcja do włączania lotu
+local function startFly()
+    if flying then return end
+    flying = true
+    
+    -- Zapamiętujemy oryginalne ustawienia
+    local originalGravity = workspace.Gravity
+    workspace.Gravity = 0
+    
+    -- Wyłączamy kolizje, żeby można było latać przez ściany (opcjonalne)
+    -- rootPart.CanCollide = false
+    
+    -- Główna pętla lotu
+    flyConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if not flying then return end
+        
+        -- Sprawdzamy, czy postać nadal istnieje
+        if not character or not character.Parent then
+            stopFly()
+            return
+        end
+        
+        -- Sterowanie
+        local moveDirection = Vector3.new(0, 0, 0)
+        
+        -- WASD
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+            moveDirection = moveDirection + workspace.CurrentCamera.CFrame.LookVector * Vector3.new(1, 0, 1)
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+            moveDirection = moveDirection - workspace.CurrentCamera.CFrame.LookVector * Vector3.new(1, 0, 1)
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+            moveDirection = moveDirection - workspace.CurrentCamera.CFrame.RightVector * Vector3.new(1, 0, 1)
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+            moveDirection = moveDirection + workspace.CurrentCamera.CFrame.RightVector * Vector3.new(1, 0, 1)
+        end
+        
+        -- Góra/Dół (Spacja/Shift)
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+            moveDirection = moveDirection + Vector3.new(0, 1, 0)
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
+            moveDirection = moveDirection - Vector3.new(0, 1, 0)
+        end
+        
+        -- Normalizacja i prędkość
+        if moveDirection.Magnitude > 0 then
+            moveDirection = moveDirection.Unit * flySpeed
+        end
+        
+        -- Poruszanie postacią
+        rootPart.Velocity = moveDirection
+    end)
+end
+
+-- Funkcja do zatrzymywania lotu
+local function stopFly()
+    if not flying then return end
+    flying = false
+    
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+    
+    -- Przywracamy grawitację
+    workspace.Gravity = 196.2 -- Domyślna grawitacja Robloxa
+    
+    -- Przywracamy kolizje
+    -- rootPart.CanCollide = true
+end
+
+-- Obsługa klawiszy do włączania/wyłączania
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.X then
+        if flying then
+            stopFly()
+            print("Lot wyłączony")
+        else
+            startFly()
+            print("Lot włączony")
+        end
+    end
+end)
+
+-- Czyszczenie przy respawnie
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    rootPart = character:WaitForChild("HumanoidRootPart")
+    humanoid = character:WaitForChild("Humanoid")
+    
+    if flying then
+        stopFly()
+    end
+end)
+
+print("Skrypt załadowany! Naciśnij X, żeby włączyć/wyłączyć latanie.")
+print("Sterowanie: WASD - kierunek, Spacja - góra, Shift - dół")
